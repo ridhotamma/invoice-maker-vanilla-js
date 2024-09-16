@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Invoice Maker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+      window.jsPDF = window.jspdf.jsPDF;
+    </script>
+  </head>
+
+  <body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto py-8">
+      <h1 class="text-3xl font-bold text-center mb-8">Invoice Maker</h1>
+
+      <form
+        id="invoice-form"
+        class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-8"
+      >
+        <div class="mb-4">
+          <label
+            for="customer-name"
+            class="block text-gray-700 text-sm font-bold mb-2"
+            >Customer Name:</label
+          >
+          <input
+            type="text"
+            id="customer-name"
+            required
+            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          />
+        </div>
+        <div class="mb-4">
+          <label
+            for="cashier-name"
+            class="block text-gray-700 text-sm font-bold mb-2"
+            >Cashier Name:</label
+          >
+          <input
+            type="text"
+            id="cashier-name"
+            required
+            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          />
+        </div>
+
+        <h3 class="text-xl font-semibold mb-4">Order Items</h3>
+        <div class="overflow-x-auto">
+          <table id="order-items" class="min-w-full bg-white">
+            <thead>
+              <tr>
+                <th
+                  class="px-6 py-3 border-b-2 border-gray-300 text-left leading-4 text-gray-600 tracking-wider"
+                >
+                  Item Name
+                </th>
+                <th
+                  class="px-6 py-3 border-b-2 border-gray-300 text-left leading-4 text-gray-600 tracking-wider"
+                >
+                  Price (Rp)
+                </th>
+                <th
+                  class="px-6 py-3 border-b-2 border-gray-300 text-left leading-4 text-gray-600 tracking-wider"
+                >
+                  Quantity
+                </th>
+                <th
+                  class="px-6 py-3 border-b-2 border-gray-300 text-left leading-4 text-gray-600 tracking-wider"
+                >
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody id="items-body">
+              <tr>
+                <td class="px-6 py-4 border-b border-gray-300">
+                  <input
+                    type="text"
+                    class="item-name shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    required
+                  />
+                </td>
+                <td class="px-6 py-4 border-b border-gray-300">
+                  <input
+                    type="number"
+                    class="item-price shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    min="0"
+                    step="100"
+                    required
+                  />
+                </td>
+                <td class="px-6 py-4 border-b border-gray-300">
+                  <input
+                    type="number"
+                    class="item-qty shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    min="1"
+                    required
+                  />
+                </td>
+                <td class="px-6 py-4 border-b border-gray-300">
+                  <button
+                    type="button"
+                    class="delete-row-button text-red-500 hover:text-red-700"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex items-center justify-between mt-4">
+          <button
+            type="button"
+            id="add-item"
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-300"
+          >
+            Add Item
+          </button>
+          <button
+            type="submit"
+            class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-300"
+          >
+            Generate Invoice
+          </button>
+        </div>
+      </form>
+
+      <div
+        id="invoice-section"
+        class="bg-white shadow-md rounded px-8 pt-6 pb-8"
+        style="display: none"
+      >
+        <div class="flex justify-end mb-4 space-x-2">
+          <button
+            id="download-pdf-button"
+            class="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-300"
+          >
+            Download PDF
+          </button>
+          <button
+            id="download-image-button"
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-300"
+          >
+            Download as Image
+          </button>
+        </div>
+        <div id="invoice" class="p-8">
+          <!-- Invoice content will be generated here -->
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Function to handle delete row
+      function deleteRow(event) {
+        const button = event.target;
+        const row = button.closest('tr');
+        row.remove();
+      }
+
+      // Add new item row
+      document
+        .getElementById('add-item')
+        .addEventListener('click', function () {
+          let tbody = document.getElementById('items-body');
+          let newRow = document.createElement('tr');
+
+          newRow.innerHTML = `
+                <td class="px-6 py-4 border-b border-gray-300">
+                  <input type="text" class="item-name shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required />
+                </td>
+                <td class="px-6 py-4 border-b border-gray-300">
+                  <input type="number" class="item-price shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" min="0" step="100" required />
+                </td>
+                <td class="px-6 py-4 border-b border-gray-300">
+                  <input type="number" class="item-qty shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" min="1" required />
+                </td>
+                <td class="px-6 py-4 border-b border-gray-300">
+                  <button type="button" class="delete-row-button text-red-500 hover:text-red-700">Delete</button>
+                </td>
+            `;
+
+          tbody.appendChild(newRow);
+
+          // Add event listener to the new delete button
+          newRow
+            .querySelector('.delete-row-button')
+            .addEventListener('click', deleteRow);
+        });
+
+      // Add event listener to existing delete button
+      document
+        .querySelectorAll('.delete-row-button')
+        .forEach(function (button) {
+          button.addEventListener('click', deleteRow);
+        });
+
+      // Generate invoice
+      document
+        .getElementById('invoice-form')
+        .addEventListener('submit', function (event) {
+          event.preventDefault();
+
+          let customerName = document.getElementById('customer-name').value;
+          let cashierName = document.getElementById('cashier-name').value;
+          let items = [];
+          let itemNames = document.querySelectorAll('.item-name');
+          let itemPrices = document.querySelectorAll('.item-price');
+          let itemQtys = document.querySelectorAll('.item-qty');
+
+          for (let i = 0; i < itemNames.length; i++) {
+            let name = itemNames[i].value;
+            let price = parseFloat(itemPrices[i].value);
+            let qty = parseInt(itemQtys[i].value);
+            let total = price * qty;
+            items.push({ name, price, qty, total });
+          }
+
+          // Generate order date in specified format
+          let orderDate = new Date();
+          let options = {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          };
+          let formattedDate = orderDate.toLocaleDateString('id-ID', options);
+
+          let invoiceHTML = `
+                <h2 class="text-2xl font-bold mb-4">Invoice</h2>
+                <p><strong>Customer Name:</strong> ${customerName}</p>
+                <p><strong>Cashier Name:</strong> ${cashierName}</p>
+                <p><strong>Order Date:</strong> ${formattedDate}</p>
+
+                <div class="overflow-x-auto mt-4">
+                    <table class="min-w-full bg-white border">
+                        <thead>
+                            <tr>
+                                <th class="px-6 py-3 border-b-2 border-gray-300 text-left text-gray-600">Item Name</th>
+                                <th class="px-6 py-3 border-b-2 border-gray-300 text-left text-gray-600">Price (Rp)</th>
+                                <th class="px-6 py-3 border-b-2 border-gray-300 text-left text-gray-600">Quantity</th>
+                                <th class="px-6 py-3 border-b-2 border-gray-300 text-left text-gray-600">Total (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+          let grandTotal = 0;
+
+          items.forEach((item) => {
+            invoiceHTML += `
+                    <tr>
+                        <td class="px-6 py-4 border-b border-gray-300">${
+                          item.name
+                        }</td>
+                        <td class="px-6 py-4 border-b border-gray-300">${formatRupiah(
+                          item.price
+                        )}</td>
+                        <td class="px-6 py-4 border-b border-gray-300">${
+                          item.qty
+                        }</td>
+                        <td class="px-6 py-4 border-b border-gray-300">${formatRupiah(
+                          item.total
+                        )}</td>
+                    </tr>
+                `;
+            grandTotal += item.total;
+          });
+
+          invoiceHTML += `
+                        </tbody>
+                    </table>
+                </div>
+                <h3 class="text-xl font-bold mt-4">Total Amount Due: ${formatRupiah(
+                  grandTotal
+                )}</h3>
+            `;
+
+          document.getElementById('invoice').innerHTML = invoiceHTML;
+          document.getElementById('invoice-section').style.display = 'block';
+
+          // Smooth scroll to the invoice section
+          document
+            .getElementById('invoice-section')
+            .scrollIntoView({ behavior: 'smooth' });
+        });
+
+      // Function to format number to Rupiah
+      function formatRupiah(amount) {
+        return new Intl.NumberFormat('id-ID', {
+          style: 'currency',
+          currency: 'IDR',
+        }).format(amount);
+      }
+
+      // Add event listeners for new buttons
+      document
+        .getElementById('download-pdf-button')
+        .addEventListener('click', function () {
+          // Download PDF functionality
+          downloadPDF();
+        });
+
+      document
+        .getElementById('download-image-button')
+        .addEventListener('click', function () {
+          // Download image functionality
+          downloadImage();
+        });
+
+      // Function to download invoice as PDF
+      async function downloadPDF() {
+        const invoice = document.getElementById('invoice');
+
+        // Add class to invoice for PDF styling
+        invoice.classList.add('pdf-export');
+
+        // Use html2canvas to capture the invoice as an image
+        const canvas = await html2canvas(invoice, {
+          scale: 2,
+          useCORS: true,
+          scrollY: -window.scrollY,
+        });
+        const imgData = canvas.toDataURL('image/png');
+
+        // Create PDF
+        const pdf = new jsPDF('p', 'mm', 'a4');
+
+        // Calculate image dimensions to fit A4 size
+        const imgWidth = 210; // A4 width in mm
+        const pageHeight = 297; // A4 height in mm
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        // Add image to PDF and handle multi-page
+        while (heightLeft > 0) {
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+          if (heightLeft > 0) {
+            pdf.addPage();
+            position = -pageHeight * (imgHeight / canvas.height);
+          }
+        }
+
+        pdf.save('invoice.pdf');
+
+        // Remove class after export
+        invoice.classList.remove('pdf-export');
+      }
+
+      // Function to download invoice as PNG image
+      async function downloadImage() {
+        const invoice = document.getElementById('invoice');
+
+        // Use html2canvas to capture the invoice as an image
+        const canvas = await html2canvas(invoice, {
+          scale: 2,
+          useCORS: true,
+          scrollY: -window.scrollY,
+        });
+        const imgData = canvas.toDataURL('image/png');
+
+        // Create a link to download the image
+        const link = document.createElement('a');
+        link.href = imgData;
+        link.download = 'invoice.png';
+        link.click();
+      }
+    </script>
+
+    <style>
+      @media print {
+      }
+
+      .pdf-export {
+        padding: 20px;
+      }
+
+      .pdf-export table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+
+      .pdf-export th,
+      .pdf-export td {
+        border: 1px solid #ccc;
+        padding: 8px;
+      }
+    </style>
+  </body>
+</html>
